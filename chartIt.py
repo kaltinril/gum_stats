@@ -22,11 +22,23 @@ metrics = ['STARS', 'SUBS', 'FORKS', 'ISSUES']
 excluded_repositories = ["ImGui"]  # Add repositories to exclude here
 
 # Filter repositories based on exclusion
-filtered_repositories = {repo: prefix for repo, prefix in repositories.items() if repo not in excluded_repositories}
+filtered_repositories = {
+    repo: prefix 
+    for repo, prefix in repositories.items() 
+    if repo not in excluded_repositories
+}
 
-# Function to create bar chart with sparklines
 def plot_bar_with_sparklines(data, repositories, metrics):
-    fig, axs = plt.subplots(len(metrics), 1, figsize=(12, 3 * len(metrics)), constrained_layout=True)
+    """Plot a series of bar charts (one for each metric) with small inset sparklines
+    and annotate each sparkline with the total percent change from the first to the last
+    data point in the time series.
+    """
+    fig, axs = plt.subplots(
+        len(metrics), 
+        1, 
+        figsize=(12, 3 * len(metrics)), 
+        constrained_layout=True
+    )
     
     for ax, metric in zip(axs, metrics):
         # Calculate the average value of the metric for each repository
@@ -38,36 +50,29 @@ def plot_bar_with_sparklines(data, repositories, metrics):
         x = np.arange(len(repositories))  # Label locations
         bars = ax.bar(x, averages, color='lightblue', edgecolor='black', label=f'Average {metric}')
         
-        # Add sparklines above each bar and show percent change
+        # Add sparklines (mini-charts) above each bar and show percent change
         for i, (repo, prefix) in enumerate(repositories.items()):
             # Extract the time series for the repository
             time_series = data[f'{metric}_{prefix}']
             dates = data['DATE']
             
             # -- Compute percent change from first to last data point --
-            # Check for division by zero in case the first value is 0
             first_value = time_series.iloc[0]
             last_value = time_series.iloc[-1]
+            
+            # Safely compute percent change, avoiding division by zero
             if first_value != 0:
                 percent_change = (last_value - first_value) / first_value * 100
             else:
-                percent_change = np.nan  # or handle differently if desired
+                percent_change = 0.0  # or np.nan or a custom placeholder
             
-            # Place the percent change text on top of the bar
+            # Get bar height for sparkline vertical placement
             bar_height = bars[i].get_height()
-            ax.text(
-                x[i], 
-                bar_height * 1.01,  # small offset above the bar
-                f"{percent_change:.2f}%",
-                ha='center',
-                va='bottom',
-                fontsize=9
-            )
             
-            # Normalize the position for the sparkline
+            # Create inset axes for the sparkline
             ax_inset = ax.inset_axes([
-                i / len(repositories),   # x-position of the inset
-                bar_height / max(averages) + 0.05,  # y-position of the inset
+                i / len(repositories),   # x-position in the parent axis
+                bar_height / max(averages) + 0.05,  # y-position in the parent axis
                 0.1,                     # width of the inset
                 0.1                      # height of the inset
             ])
@@ -76,6 +81,19 @@ def plot_bar_with_sparklines(data, repositories, metrics):
             ax_inset.yaxis.set_visible(False)
             ax_inset.set_xlim(dates.min(), dates.max())
             ax_inset.yaxis.set_major_locator(MaxNLocator(2))
+            
+            # Place the percent change text inside the sparkline area
+            # Here, we're placing it in the top-right corner of the inset
+            ax_inset.text(
+                0.95, 
+                0.95, 
+                f"{percent_change:.2f}%", 
+                transform=ax_inset.transAxes,
+                ha="right", 
+                va="top", 
+                fontsize=8, 
+                color="darkred"
+            )
         
         # Format the main chart
         ax.set_title(f'{metric} Across Repositories', fontsize=14)
