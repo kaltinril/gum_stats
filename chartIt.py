@@ -127,6 +127,7 @@ def plot_bar_with_sparklines(data, repositories, metrics):
                 spine.set_visible(False)
             
             # Place the percent change text in the top-right corner
+            # with a bounding box and higher zorder so it's visible.
             ax_inset.text(
                 0.95, 
                 0.95, 
@@ -135,7 +136,9 @@ def plot_bar_with_sparklines(data, repositories, metrics):
                 ha="right", 
                 va="top", 
                 fontsize=8, 
-                color="darkred"
+                color="darkred",
+                zorder=5,  # ensures it's drawn above the sparkline
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none')
             )
         
         # Format the main chart
