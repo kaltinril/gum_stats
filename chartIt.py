@@ -38,15 +38,39 @@ def plot_bar_with_sparklines(data, repositories, metrics):
         x = np.arange(len(repositories))  # Label locations
         bars = ax.bar(x, averages, color='lightblue', edgecolor='black', label=f'Average {metric}')
         
-        # Add sparklines above each bar
+        # Add sparklines above each bar and show percent change
         for i, (repo, prefix) in enumerate(repositories.items()):
             # Extract the time series for the repository
             time_series = data[f'{metric}_{prefix}']
             dates = data['DATE']
             
-            # Normalize the position for the sparkline
+            # -- Compute percent change from first to last data point --
+            # Check for division by zero in case the first value is 0
+            first_value = time_series.iloc[0]
+            last_value = time_series.iloc[-1]
+            if first_value != 0:
+                percent_change = (last_value - first_value) / first_value * 100
+            else:
+                percent_change = np.nan  # or handle differently if desired
+            
+            # Place the percent change text on top of the bar
             bar_height = bars[i].get_height()
-            ax_inset = ax.inset_axes([i / len(repositories), bar_height / max(averages) + 0.05, 0.1, 0.1])
+            ax.text(
+                x[i], 
+                bar_height * 1.01,  # small offset above the bar
+                f"{percent_change:.2f}%",
+                ha='center',
+                va='bottom',
+                fontsize=9
+            )
+            
+            # Normalize the position for the sparkline
+            ax_inset = ax.inset_axes([
+                i / len(repositories),   # x-position of the inset
+                bar_height / max(averages) + 0.05,  # y-position of the inset
+                0.1,                     # width of the inset
+                0.1                      # height of the inset
+            ])
             ax_inset.plot(dates, time_series, color='black', linewidth=1)
             ax_inset.xaxis.set_visible(False)
             ax_inset.yaxis.set_visible(False)
@@ -62,5 +86,5 @@ def plot_bar_with_sparklines(data, repositories, metrics):
     
     plt.show()
 
-# Plot the bar chart with sparklines
+# Plot the bar chart with sparklines and percent change
 plot_bar_with_sparklines(data, filtered_repositories, metrics)
