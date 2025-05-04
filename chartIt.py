@@ -12,7 +12,8 @@ repositories = {
     "GeonBit.UI": "geonbit",
     "Myra": "myra",
     "ImGui": "imgui",
-    "MLEM": "mlem.ui"
+    "MLEM": "mlem.ui",
+    "MonoGo": "MonoGo"
 }
 
 metrics = ['STARS', 'SUBS', 'FORKS', 'ISSUES']

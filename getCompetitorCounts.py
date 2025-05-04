@@ -11,7 +11,8 @@ REPOS = [
     ["RonenNess", "GeonBit.UI", "geonbit"],
     ["rds1983", "Myra", "myra"],
     ["ocornut", "imgui", "imgui"],
-    ["Ellpeck", "MLEM", "mlem.ui"]
+    ["Ellpeck", "MLEM", "mlem.ui"],
+    ["MonoGo-Engine", "MonoGo", "MonoGo"]
 ]
 
 
