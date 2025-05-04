@@ -29,9 +29,10 @@ filtered_repositories = {
 }
 
 def plot_bar_with_sparklines(data, repositories, metrics):
-    """Plot a series of bar charts (one for each metric) with small inset sparklines
-    and annotate each sparkline with the total percent change from the first to the last
-    data point in the time series.
+    """
+    Plot bar charts (average metric values) with small inset sparklines
+    and annotate each sparkline with percent change (first to last).
+    Also adds numeric labels on top of each bar.
     """
     fig, axs = plt.subplots(
         len(metrics), 
@@ -42,13 +43,33 @@ def plot_bar_with_sparklines(data, repositories, metrics):
     
     for ax, metric in zip(axs, metrics):
         # Calculate the average value of the metric for each repository
-        averages = [
-            data[f'{metric}_{prefix}'].mean() for prefix in repositories.values()
-        ]
+        averages = []
+        for prefix in repositories.values():
+            avg_val = data[f'{metric}_{prefix}'].mean()
+            averages.append(avg_val)
         
         # Create the bar chart
         x = np.arange(len(repositories))  # Label locations
-        bars = ax.bar(x, averages, color='lightblue', edgecolor='black', label=f'Average {metric}')
+        bars = ax.bar(
+            x, 
+            averages, 
+            color='lightblue', 
+            edgecolor='black', 
+            label=f'Average {metric}'
+        )
+        
+        # Add numeric labels above each bar
+        for i, bar in enumerate(bars):
+            bar_height = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width()/2,
+                bar_height * 1.01,  # a little above the bar
+                f"{bar_height:.1f}",  # or .0f if integers
+                ha='center',
+                va='bottom',
+                fontsize=9,
+                color='black'
+            )
         
         # Add sparklines (mini-charts) above each bar and show percent change
         for i, (repo, prefix) in enumerate(repositories.items()):
@@ -64,26 +85,48 @@ def plot_bar_with_sparklines(data, repositories, metrics):
             if first_value != 0:
                 percent_change = (last_value - first_value) / first_value * 100
             else:
-                percent_change = 0.0  # or np.nan or a custom placeholder
-            
-            # Get bar height for sparkline vertical placement
-            bar_height = bars[i].get_height()
+                percent_change = 0.0
             
             # Create inset axes for the sparkline
+            bar_height = bars[i].get_height()
             ax_inset = ax.inset_axes([
-                i / len(repositories),   # x-position in the parent axis
-                bar_height / max(averages) + 0.05,  # y-position in the parent axis
-                0.1,                     # width of the inset
-                0.1                      # height of the inset
+                i / len(repositories),             # x-position in parent axis
+                bar_height / max(averages) + 0.05, # y-position in parent axis
+                0.1,                               # width of the inset
+                0.1                                # height of the inset
             ])
-            ax_inset.plot(dates, time_series, color='black', linewidth=1)
-            ax_inset.xaxis.set_visible(False)
-            ax_inset.yaxis.set_visible(False)
-            ax_inset.set_xlim(dates.min(), dates.max())
-            ax_inset.yaxis.set_major_locator(MaxNLocator(2))
             
-            # Place the percent change text inside the sparkline area
-            # Here, we're placing it in the top-right corner of the inset
+            # Plot the sparkline
+            ax_inset.plot(dates, time_series, color='black', linewidth=1)
+            ax_inset.fill_between(dates, time_series, color='gray', alpha=0.2)
+            
+            # Highlight the first and last data points
+            ax_inset.scatter(dates.iloc[0],  first_value,  color='red', s=10, zorder=3)
+            ax_inset.scatter(dates.iloc[-1], last_value, color='red', s=10, zorder=3)
+            
+            # Ensure the sparkline isn't squashed: set y-limits
+            y_min, y_max = time_series.min(), time_series.max()
+            if y_min == y_max:
+                # Handle the case where data is flat
+                y_min -= 0.5
+                y_max += 0.5
+            else:
+                # Add a small margin around min and max
+                margin = 0.1 * (y_max - y_min)
+                y_min -= margin
+                y_max += margin
+            ax_inset.set_ylim(y_min, y_max)
+            
+            # Keep x-limits consistent with the data range
+            ax_inset.set_xlim(dates.min(), dates.max())
+            
+            # Remove tick labels and spines for a "sparkline" look
+            ax_inset.set_xticks([])
+            ax_inset.set_yticks([])
+            for spine in ax_inset.spines.values():
+                spine.set_visible(False)
+            
+            # Place the percent change text in the top-right corner
             ax_inset.text(
                 0.95, 
                 0.95, 
