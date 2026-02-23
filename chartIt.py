@@ -1,28 +1,24 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from repos_config import get_chart_repositories, METRICS
 
 # Load data
-data = pd.read_csv('data.csv')  # Replace with your file path
+data = pd.read_csv('data.csv')
 data.columns = data.columns.str.strip()
 data['DATE'] = pd.to_datetime(data['DATE'])
 
-repositories = {
-    "Gum": "gum",
-    "GeonBit.UI": "geonbit",
-    "Myra": "myra",
-    "ImGui": "imgui",
-    "MLEM": "mlem.ui",
-    "MonoGo": "MonoGo"
-}
+filtered_repositories = get_chart_repositories()
+metrics = METRICS
 
-metrics = ['STARS', 'SUBS', 'FORKS', 'ISSUES']
-excluded_repositories = ["ImGui"]  
-filtered_repositories = {
-    repo: prefix
-    for repo, prefix in repositories.items()
-    if repo not in excluded_repositories
-}
+# Fill missing columns with 0 for repos added after data collection started
+for prefix in filtered_repositories.values():
+    for metric in metrics:
+        col = f"{metric}_{prefix}"
+        if col not in data.columns:
+            data[col] = 0
+        else:
+            data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
 
 def plot_bar_with_sparklines(data, repositories, metrics):
     """
@@ -111,67 +107,66 @@ def plot_bar_with_sparklines(data, repositories, metrics):
                 color='black'
             )
         
-        # === Sparklines ===
+        # === Sparklines (normalized to % change, shared y-axis) ===
         max_bar_height = max(np.array(originals) + np.array(changes))
-        
-        for i, (repo, prefix) in enumerate(repositories.items()):
-            # Full time series
-            time_series = data[f"{metric}_{prefix}"]
-            dates = data['DATE']
-            first_val = time_series.iloc[0]
-            last_val = time_series.iloc[-1]
-            
-            # % change
+        n_repos = len(repositories)
+        dates = data['DATE']
+
+        # Compute all % change series first to find a shared y range
+        pct_series_list = []
+        pct_changes = []
+        for prefix in repositories.values():
+            ts = data[f"{metric}_{prefix}"]
+            first_val = ts.iloc[0]
             if first_val != 0:
-                pct_change = (last_val - first_val) / first_val * 100
+                pct_ts = (ts - first_val) / first_val * 100
             else:
-                pct_change = 0.0
-            
+                pct_ts = ts * 0
+            pct_series_list.append(pct_ts)
+            pct_changes.append(pct_ts.iloc[-1])
+
+        all_pct_min = min(s.min() for s in pct_series_list)
+        all_pct_max = max(s.max() for s in pct_series_list)
+        if all_pct_min == all_pct_max:
+            all_pct_min -= 1
+            all_pct_max += 1
+        pct_margin = 0.1 * (all_pct_max - all_pct_min)
+
+        # Set explicit xlim so sparkline positions map cleanly
+        ax.set_xlim(-0.5, n_repos - 0.5)
+        spark_w = 0.7 / n_repos  # 0.7 data units out of n_repos total
+        spark_h = 0.1
+
+        for i, (repo, prefix) in enumerate(repositories.items()):
+            pct_ts = pct_series_list[i]
+            pct_change = pct_changes[i]
             total_bar_height = originals[i] + changes[i]
-            
-            # Inset axes just above the top of the stacked bar
-            ax_inset = ax.inset_axes([
-                i / len(repositories),
-                total_bar_height / max_bar_height + 0.05,
-                0.1,
-                0.1
-            ])
-            
-            # Plot sparkline
-            ax_inset.plot(dates, time_series, color='black', linewidth=1, zorder=2)
-            ax_inset.fill_between(dates, time_series, color='gray', alpha=0.2, zorder=1)
-            
-            # Highlight first & last
-            ax_inset.scatter(dates.iloc[0], first_val, color='red', s=10, zorder=3)
-            ax_inset.scatter(dates.iloc[-1], last_val, color='red', s=10, zorder=3)
-            
-            # Ensure we don't squash the sparkline
-            y_min, y_max = time_series.min(), time_series.max()
-            if y_min == y_max:
-                y_min -= 0.5
-                y_max += 0.5
-            else:
-                margin = 0.1 * (y_max - y_min)
-                y_min -= margin
-                y_max += margin
-            ax_inset.set_ylim(y_min, y_max)
+
+            # Center sparkline over bar i: bar center in axes coords = (i+0.5)/n_repos
+            center_ax = (i + 0.5) / n_repos
+            left = center_ax - spark_w / 2
+            bottom = total_bar_height / max_bar_height + 0.05
+
+            ax_inset = ax.inset_axes([left, bottom, spark_w, spark_h])
+
+            ax_inset.plot(dates, pct_ts, color='black', linewidth=1, zorder=2)
+            ax_inset.fill_between(dates, pct_ts, color='gray', alpha=0.2, zorder=1)
+            ax_inset.scatter(dates.iloc[0], pct_ts.iloc[0], color='red', s=10, zorder=3)
+            ax_inset.scatter(dates.iloc[-1], pct_ts.iloc[-1], color='red', s=10, zorder=3)
+
+            # Shared y scale so slopes are visually comparable
+            ax_inset.set_ylim(all_pct_min - pct_margin, all_pct_max + pct_margin)
             ax_inset.set_xlim(dates.min(), dates.max())
-            
-            # Remove ticks/spines for "sparkline" style
+
             ax_inset.set_xticks([])
             ax_inset.set_yticks([])
             for spine in ax_inset.spines.values():
                 spine.set_visible(False)
-            
-            # Show % change
+
             ax_inset.text(
-                0.95,
-                0.95,
-                f"{pct_change:.1f}%",
+                0.95, 0.95, f"{pct_change:+.1f}%",
                 transform=ax_inset.transAxes,
-                ha="right",
-                va="top",
-                fontsize=8,
+                ha="right", va="top", fontsize=8,
                 color="darkred",
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'),
                 zorder=5
