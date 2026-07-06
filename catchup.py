@@ -20,14 +20,31 @@ import csv
 import os
 import requests
 from datetime import datetime
-from repos_config import REPOS
+from repos_config import ALL_REPOS
 
 API_URL = "https://api.github.com/repos"
 CSV_FILE = "data.csv"
 
+# GitHub restricted the stargazers-with-timestamps API: GET /repos/{owner}/{repo}/stargazers
+# now returns 404 Not Found for any repo you don't own or collaborate on. That makes
+# historical star backfill impossible for competitor repos, which is this script's whole point.
+# See: https://www.star-history.com/blog/github-stargazer-api-restriction/
+STARGAZER_API_NOTICE = (
+    "\n" + "=" * 70 + "\n"
+    "NO LONGER AVAILABLE: historical star backfill has been disabled.\n"
+    + "=" * 70 + "\n"
+    "GitHub restricted the stargazers-timestamp API (GET .../stargazers).\n"
+    "It now returns 404 Not Found for any repository you don't own or\n"
+    "collaborate on, so past star counts can no longer be reconstructed\n"
+    "for competitor repos.\n\n"
+    "  Details: https://www.star-history.com/blog/github-stargazer-api-restriction/\n\n"
+    "Going forward, collect data day-by-day with getCompetitorCounts.py.\n"
+    + "=" * 70 + "\n"
+)
+
 
 def find_repo_by_alias(alias):
-    for r in REPOS:
+    for r in ALL_REPOS:
         if r["alias"] == alias:
             return r
     return None
@@ -213,107 +230,10 @@ def print_sample(counts, label):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Backfill historical data for a repo")
-    parser.add_argument("alias", help="Repo alias from repos_config.py")
-    parser.add_argument("--token", help="GitHub API token (or set GITHUB_TOKEN env var)")
-    parser.add_argument("--stars-only", action="store_true", help="Only backfill stars")
-    args = parser.parse_args()
-
-    # Token priority: --token flag > secret.txt > GITHUB_TOKEN env var
-    token = args.token or ""
-    if not token:
-        secret_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "secret.txt")
-        if os.path.isfile(secret_path):
-            with open(secret_path, "r") as f:
-                token = f.read().strip()
-            print(f"  Loaded token from secret.txt")
-    if not token:
-        token = os.environ.get("GITHUB_TOKEN", "")
-    if not token:
-        print("Warning: No GitHub token provided. Unauthenticated rate limit is 60 requests/hour.")
-        print("  Add token to secret.txt, use --token, or set GITHUB_TOKEN env var.\n")
-
-    repo_info = find_repo_by_alias(args.alias)
-    if not repo_info:
-        print(f"Error: alias '{args.alias}' not found in repos_config.py")
-        print(f"Available aliases: {[r['alias'] for r in REPOS]}")
-        return
-
-    owner = repo_info["owner"]
-    repo = repo_info["repo"]
-    alias = args.alias
-
-    print(f"Backfilling data for {owner}/{repo} (alias: {alias})")
-
-    # Get dates from CSV
-    with open(CSV_FILE, "r", newline="") as f:
-        reader = csv.reader(f)
-        rows = list(reader)
-
-    header = [c.strip() for c in rows[0]]
-    date_idx = header.index("DATE")
-    dates = []
-    for row in rows[1:]:
-        date_str = row[date_idx].strip()
-        dates.append(datetime.strptime(date_str, "%Y-%m-%d").date())
-
-    print(f"  CSV has {len(dates)} data rows ({dates[0]} to {dates[-1]})")
-
-    # Check which metrics need backfilling before making any API calls
-    needs_stars = column_needs_backfill(f"STARS_{alias}")
-    needs_forks = not args.stars_only and column_needs_backfill(f"FORKS_{alias}")
-    needs_issues = not args.stars_only and column_needs_backfill(f"ISSUES_{alias}")
-
-    if not needs_stars and not needs_forks and not needs_issues:
-        print("\n  All columns already have data — nothing to backfill!")
-        return
-
-    print(f"\n  Needs backfill: STARS={needs_stars}, FORKS={needs_forks}, ISSUES={needs_issues}")
-
-    # === STARS ===
-    if needs_stars:
-        print(f"\n  [STARS] Fetching stargazers...")
-        stargazers = fetch_all_stargazers(owner, repo, token)
-        print(f"  Total stargazers: {len(stargazers)}")
-        if stargazers:
-            star_dates = [parse_date(s["starred_at"]) for s in stargazers]
-            star_counts = compute_cumulative_counts(star_dates, dates)
-            print_sample(star_counts, "STARS")
-            updated = update_csv_column(f"STARS_{alias}", star_counts)
-            print(f"  Updated {updated} rows for STARS_{alias}")
-    else:
-        print(f"\n  [STARS] Already backfilled — skipping API call")
-
-    # === FORKS ===
-    if needs_forks:
-        print(f"\n  [FORKS] Fetching forks...")
-        forks = fetch_all_forks(owner, repo, token)
-        print(f"  Total forks: {len(forks)}")
-        if forks:
-            fork_dates = [parse_date(f["created_at"]) for f in forks]
-            fork_counts = compute_cumulative_counts(fork_dates, dates)
-            print_sample(fork_counts, "FORKS")
-            updated = update_csv_column(f"FORKS_{alias}", fork_counts)
-            print(f"  Updated {updated} rows for FORKS_{alias}")
-    elif not args.stars_only:
-        print(f"\n  [FORKS] Already backfilled — skipping API call")
-
-    # === ISSUES (open count at each date) ===
-    if needs_issues:
-        print(f"\n  [ISSUES] Fetching all issues (open + closed)...")
-        issues = fetch_all_issues(owner, repo, token)
-        real_issues = [i for i in issues if "pull_request" not in i]
-        print(f"  Total issues (excl PRs): {len(real_issues)}")
-        if issues:
-            issue_counts = compute_open_issues_at_dates(issues, dates)
-            print_sample(issue_counts, "ISSUES (open)")
-            updated = update_csv_column(f"ISSUES_{alias}", issue_counts)
-            print(f"  Updated {updated} rows for ISSUES_{alias}")
-    elif not args.stars_only:
-        print(f"\n  [ISSUES] Already backfilled — skipping API call")
-
-    print("\n  Note: SUBS (subscribers) cannot be backfilled — GitHub has no timestamps for them.")
-    print("  Done!")
+    # This script depended on the stargazers-timestamp API, which GitHub has
+    # restricted. Rather than run and silently write bogus zero-star rows, it now
+    # explains why it no longer works and exits without touching data.csv.
+    print(STARGAZER_API_NOTICE)
 
 
 if __name__ == "__main__":

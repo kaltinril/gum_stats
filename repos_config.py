@@ -1,10 +1,10 @@
 """
 Single source of truth for all tracked GitHub repositories.
-To add a new library, append a dict to the REPOS list below.
+To add a new library, append a dict to the ALL_REPOS list below.
 Both getCompetitorCounts.py and chartit.py import from this file.
 """
 
-REPOS = [
+ALL_REPOS = [
     {"owner": "vchelaru", "repo": "Gum", "alias": "gum", "display_name": "Gum", "excluded_from_chart": False},
     {"owner": "RonenNess", "repo": "GeonBit.UI", "alias": "geonbit", "display_name": "GeonBit.UI", "excluded_from_chart": False},
     {"owner": "rds1983", "repo": "Myra", "alias": "myra", "display_name": "Myra", "excluded_from_chart": False},
@@ -21,14 +21,14 @@ REPOS = [
 METRICS = ["STARS", "SUBS", "FORKS", "ISSUES"]
 
 # Validate alias uniqueness
-_aliases = [r["alias"] for r in REPOS]
+_aliases = [r["alias"] for r in ALL_REPOS]
 assert len(_aliases) == len(set(_aliases)), "Duplicate alias detected in repos_config!"
 
 
 def get_column_names():
     """Return full list of expected CSV column names (excluding DATE)."""
     cols = []
-    for r in REPOS:
+    for r in ALL_REPOS:
         for m in METRICS:
             cols.append(f"{m}_{r['alias']}")
     return cols
@@ -38,6 +38,6 @@ def get_chart_repositories():
     """Return dict of {display_name: alias} for repos not excluded from chart."""
     return {
         r["display_name"]: r["alias"]
-        for r in REPOS
+        for r in ALL_REPOS
         if not r["excluded_from_chart"]
     }

@@ -2,7 +2,7 @@ import requests
 import os
 import datetime
 import csv
-from repos_config import REPOS, METRICS, get_column_names
+from repos_config import ALL_REPOS, METRICS, get_column_names
 
 OUTPUT_FILENAME = 'data.csv'
 API_URL = 'https://api.github.com/repos'
@@ -108,7 +108,7 @@ def already_recorded_today(outfile):
 def get_stats(token=""):
     current_date = datetime.date.today()
     row = [str(current_date)]
-    for repo_info in REPOS:
+    for repo_info in ALL_REPOS:
         owner = repo_info["owner"]
         repo = repo_info["repo"]
         print(f"Fetching: {owner}/{repo}")

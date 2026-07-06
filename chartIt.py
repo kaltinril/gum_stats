@@ -1,12 +1,28 @@
+import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from repos_config import get_chart_repositories, METRICS
 
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Chart GitHub repository stats.')
+parser.add_argument(
+    '-y', '--years',
+    type=float,
+    default=None,
+    help='Number of years back to include (e.g. -y 1). If omitted, shows everything.'
+)
+args = parser.parse_args()
+
 # Load data
 data = pd.read_csv('data.csv')
 data.columns = data.columns.str.strip()
 data['DATE'] = pd.to_datetime(data['DATE'])
+
+# Filter to the requested lookback window (default: show everything)
+if args.years is not None:
+    cutoff = data['DATE'].max() - pd.DateOffset(days=round(args.years * 365.25))
+    data = data[data['DATE'] >= cutoff].reset_index(drop=True)
 
 filtered_repositories = get_chart_repositories()
 metrics = METRICS
