@@ -29,14 +29,13 @@ import csv
 import datetime
 
 from repos_config import ALL_REPOS, METRICS
-from getCompetitorCounts import (
-    OUTPUT_FILENAME,
-    ensure_csv_header,
-    get_counts_from_repo,
-    load_token,
-)
-from catchup import (
+from starcounts import (
+    CSV_FILE,
     STARGAZER_API_NOTICE,
+    load_token,
+    get_counts_from_repo,
+    ensure_csv_header,
+    read_csv,
     fetch_all_stargazers,
     fetch_all_forks,
     fetch_all_issues,
@@ -44,15 +43,6 @@ from catchup import (
     compute_cumulative_counts,
     compute_open_issues_at_dates,
 )
-
-CSV_FILE = OUTPUT_FILENAME
-
-
-def read_csv():
-    with open(CSV_FILE, "r", newline="") as f:
-        rows = list(csv.reader(f))
-    header = [c.strip() for c in rows[0]]
-    return header, rows[1:]
 
 
 def existing_dates(data_rows, date_idx):

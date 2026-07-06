@@ -1,24 +1,9 @@
-import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from repos_config import get_chart_repositories, METRICS
+from starcounts import load_chart_data, parse_years_arg
 
-# Load data
-data = pd.read_csv('data.csv')
-data.columns = data.columns.str.strip()
-data['DATE'] = pd.to_datetime(data['DATE'])
-
-filtered_repositories = get_chart_repositories()
-metrics = METRICS
-
-# Fill missing columns with 0 for repos added after data collection started
-for prefix in filtered_repositories.values():
-    for metric in metrics:
-        col = f"{metric}_{prefix}"
-        if col not in data.columns:
-            data[col] = 0
-        else:
-            data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
+years = parse_years_arg()
+data, filtered_repositories, metrics = load_chart_data(years)
 
 
 def plot_bar_with_sparklines(data, repositories, metrics):
