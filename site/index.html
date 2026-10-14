@@ -20,6 +20,7 @@
   --up: #006300;
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
   --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --n1: #52514e; --n2: #898781;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -36,6 +37,7 @@
     --up: #0ca30c;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
     --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --n1: #c3c2b7; --n2: #898781;
   }
 }
 :root[data-theme="dark"] {
@@ -52,6 +54,7 @@
   --up: #0ca30c;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
   --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --n1: #c3c2b7; --n2: #898781;
 }
 
 * { box-sizing: border-box; }
@@ -80,6 +83,7 @@ header p { margin: 0; color: var(--text-secondary); }
 }
 .seg button + button { border-left: 1px solid var(--border); }
 .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.seg button:disabled { opacity: 0.4; cursor: default; }
 .seg button:focus-visible, .chip:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
@@ -153,6 +157,12 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
         <button data-v="pct" aria-pressed="false">% growth</button>
       </div>
     </div>
+    <div class="group"><span>Scale</span>
+      <div class="seg" id="scale">
+        <button data-v="linear" aria-pressed="true">Linear</button>
+        <button data-v="log" aria-pressed="false">Log</button>
+      </div>
+    </div>
   </div>
 
   <div class="chips" id="chips" aria-label="Libraries shown"></div>
@@ -193,10 +203,9 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
 
   const METRIC_LABEL = { STARS: "Stars", FORKS: "Forks", SUBS: "Watchers", ISSUES: "Open issues" };
   const DAY = 86400000;
-  const state = { metric: "STARS", range: 0, mode: "total", hidden: new Set() };
+  const state = { metric: "STARS", range: 0, mode: "total", scale: "linear", hidden: new Set() };
   let rows = [];      // [{ t: ms, date: "YYYY-MM-DD", values: { col: number|null } }]
   let repos = [];     // charted repos, each with a fixed color slot
-  let others = [];    // tracked but not charted
   let chart = null;
 
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -232,6 +241,8 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
 
   // Value series for one repo in the current metric/range/mode. Gained and % growth
   // are measured from the repo's first recorded value inside the range.
+  function isLog() { return state.scale === "log" && state.mode === "total"; }
+
   function seriesFor(repo, slice) {
     const col = state.metric + "_" + repo.alias;
     let base = null;
@@ -241,6 +252,7 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
       if (base == null) base = v;
       if (state.mode === "change") return { x: r.t, y: v - base };
       if (state.mode === "pct") return { x: r.t, y: base === 0 ? null : ((v - base) / base) * 100 };
+      if (isLog() && v <= 0) return { x: r.t, y: null };  // log axis can't show 0
       return { x: r.t, y: v };
     });
   }
@@ -259,6 +271,7 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
       data: seriesFor(r, slice),
       borderColor: css(r.colorVar),
       backgroundColor: css(r.colorVar),
+      borderDash: r.dash,
       borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
@@ -286,9 +299,21 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
           },
         },
         y: {
+          type: isLog() ? "logarithmic" : "linear",
           grid: { color: grid },
           border: { display: false },
-          ticks: { color: muted, callback: v => state.mode === "pct" ? v + "%" : Number(v).toLocaleString() },
+          ticks: {
+            color: muted,
+            callback: v => {
+              if (state.mode === "pct") return v + "%";
+              // Chart.js puts log ticks at 1, 2, 4, 6, 8 x 10^n; label only 1, 2 and 4 so they don't pile up.
+              if (isLog()) {
+                const lead = v / Math.pow(10, Math.floor(Math.log10(v)));
+                if (![1, 2, 4].some(n => Math.abs(lead - n) < 1e-6)) return "";
+              }
+              return Number(v).toLocaleString();
+            },
+          },
         },
       },
       plugins: {
@@ -311,10 +336,15 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
       },
     };
 
-    if (chart) { chart.data.datasets = datasets; chart.options = opts; chart.update(); }
-    else chart = new Chart(document.getElementById("chart"), { type: "line", data: { datasets }, options: opts });
+    // Recreate rather than update: Chart.js doesn't reliably switch an axis between linear and log in place.
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById("chart"), { type: "line", data: { datasets }, options: opts });
 
-    const modeText = { total: "total", change: "gained since the start of the range", pct: "% growth since the start of the range" }[state.mode];
+    document.querySelectorAll("#scale button").forEach(b => {
+      b.disabled = state.mode !== "total";
+      b.title = b.disabled ? "Log scale applies to Total only" : "";
+    });
+    const modeText = { total: isLog() ? "total, log scale" : "total", change: "gained since the start of the range", pct: "% growth since the start of the range" }[state.mode];
     document.getElementById("note").textContent =
       METRIC_LABEL[state.metric] + ", " + modeText + ". " + fmtDate(slice[0].t) + " to " + fmtDate(slice[slice.length - 1].t) +
       " (" + slice.length + " snapshots). Click a library above to hide or show it.";
@@ -333,7 +363,7 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
 
     const first = slice[0], last = slice[slice.length - 1];
     const body = table.createTBody();
-    const all = repos.concat(others).slice().sort((a, b) =>
+    const all = repos.slice().sort((a, b) =>
       (last.values["STARS_" + b.alias] ?? 0) - (last.values["STARS_" + a.alias] ?? 0));
     all.forEach(repo => {
       const tr = body.insertRow();
@@ -341,7 +371,6 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
       const a = el("a", repo.display_name);
       a.href = repo.url;
       name.appendChild(a);
-      if (repo.excluded_from_chart) name.appendChild(el("span", "not charted", "muted"));
       ["STARS", "FORKS", "SUBS", "ISSUES"].forEach(m => {
         const td = tr.insertCell();
         const col = m + "_" + repo.alias;
@@ -404,9 +433,13 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
     const chips = document.getElementById("chips");
     repos.forEach(r => {
       const b = el("button", null, "chip");
-      b.setAttribute("aria-pressed", "true");
+      b.setAttribute("aria-pressed", String(!state.hidden.has(r.alias)));
+      if (r.excluded_from_chart) b.title = "Off by default: much larger than the others or not a UI library";
       const key = el("span", null, "key");
-      key.style.background = "var(" + r.colorVar + ")";
+      const c = "var(" + r.colorVar + ")";
+      key.style.background = r.dash.length
+        ? "repeating-linear-gradient(90deg, " + c + " 0 " + r.dash[0] + "px, transparent " + r.dash[0] + "px " + (r.dash[0] + r.dash[1]) + "px)"
+        : c;
       b.append(key, document.createTextNode(r.display_name));
       b.addEventListener("click", () => {
         if (state.hidden.has(r.alias)) state.hidden.delete(r.alias); else state.hidden.add(r.alias);
@@ -426,10 +459,15 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
       const config = window.GUM_STATS.config;
       rows = parseCsv(window.GUM_STATS.csv).sort((a, b) => a.t - b.t);
       // Colors follow the repo's position in repos_config.py, so hiding one never repaints the rest.
-      let slot = 0;
+      // Repos marked excluded_from_chart (ImGui, Nez) start hidden and get gray dashed/dotted
+      // lines: the palette has eight distinguishable colors and they go to the main libraries.
+      const neutral = [{ colorVar: "--n1", dash: [6, 4] }, { colorVar: "--n2", dash: [2, 3] }];
+      let slot = 0, extra = 0;
       config.repos.forEach(r => {
-        if (!r.excluded_from_chart && slot < 8) repos.push(Object.assign({ colorVar: "--s" + (++slot) }, r));
-        else others.push(r);
+        let style;
+        if (!r.excluded_from_chart && slot < 8) style = { colorVar: "--s" + (++slot), dash: [] };
+        else { style = neutral[extra++ % neutral.length]; state.hidden.add(r.alias); }
+        repos.push(Object.assign(style, r));
       });
       const latest = rows[rows.length - 1].date;
       document.getElementById("updated").textContent = "Latest snapshot " + latest + ".";
@@ -437,6 +475,7 @@ footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
       bindSeg("metric", "metric", v => v);
       bindSeg("range", "range", Number);
       bindSeg("mode", "mode", v => v);
+      bindSeg("scale", "scale", v => v);
       document.getElementById("dl-view").addEventListener("click", downloadView);
       render();
       window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
