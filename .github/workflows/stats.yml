@@ -27,9 +27,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -60,7 +60,7 @@ jobs:
           git push
 
       - name: Keep the CSV as a run artifact too
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: data-${{ github.run_id }}
           path: data.csv
@@ -72,12 +72,12 @@ jobs:
     if: always() && (needs.collect.result == 'success' || needs.collect.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The collect job may have just pushed a commit; build from the branch tip, not the triggering SHA.
           ref: ${{ github.event_name == 'pull_request' && github.sha || github.ref }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -88,7 +88,7 @@ jobs:
 
       - run: python build_site.py
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -105,4 +105,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
