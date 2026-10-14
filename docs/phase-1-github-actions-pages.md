@@ -1,6 +1,6 @@
 # Phase 1: Automate collection and host the charts on GitHub
 
-**Status:** built on branch `feature/github-actions-pages`, not merged yet.
+**Status:** merged to `main` 2026-10-14. Daily collection is live. The Pages deploy is skipped while the repo is private (the free plan has no Pages for private repos) and starts on its own once the repo is public and Pages is set to "GitHub Actions".
 **Goal:** stop running the collector by hand, never lose a snapshot, and publish an
 always-current chart page without running a web server. GitHub does all of it, the
 same way [XnaFiddle](https://github.com/vchelaru/XnaFiddle) is hosted on GitHub Pages.
@@ -80,7 +80,7 @@ a bad hand edit to `data.csv` shows up as a red check before merge.
   value.
 - `build_site.py` builds `_site/`; the page was served locally and screenshotted in
   light and dark mode with the real data.
-- Not yet verified: the workflow itself on GitHub (needs the setup steps above).
+- On GitHub (2026-10-14): manual runs pass collect (correctly skipped, since 2026-10-14 was already recorded) and build; deploy skipped while private. The first real commit-and-push from the Action is the next scheduled run.
 
 ## Phase 2: move it under Gum (later)
 
