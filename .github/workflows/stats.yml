@@ -1,0 +1,107 @@
+name: Collect stats and publish site
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # daily, 06:17 UTC (off the top of the hour, when GitHub's scheduler is busiest)
+  workflow_dispatch:        # "Run workflow" button on the Actions tab
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "data.csv"
+      - "repos_config.py"
+      - "build_site.py"
+      - ".github/workflows/stats.yml"
+  pull_request:
+
+# Never let two runs push data.csv at the same time.
+concurrency:
+  group: stats-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    # Collect only on the schedule or a manual run on main; pushes and PRs just rebuild.
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Keep a copy of the current data
+        run: cp data.csv "$RUNNER_TEMP/data_before.csv"
+
+      - name: Fetch today's counts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python getCompetitorCounts.py
+
+      - name: Validate (no rows lost or changed)
+        run: python validate_data.py --baseline "$RUNNER_TEMP/data_before.csv"
+
+      - name: Commit data.csv
+        run: |
+          if git diff --quiet -- data.csv; then
+            echo "No new data."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.csv
+          git commit -m "Add stats for $(date -u +%Y-%m-%d)"
+          git pull --rebase
+          git push
+
+      - name: Keep the CSV as a run artifact too
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-${{ github.run_id }}
+          path: data.csv
+          retention-days: 90
+
+  build:
+    needs: collect
+    # Runs after a collect, or on its own when collect was skipped (push / PR).
+    if: always() && (needs.collect.result == 'success' || needs.collect.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The collect job may have just pushed a commit; build from the branch tip, not the triggering SHA.
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # validate_data.py imports starcounts.py, which imports requests.
+      - run: pip install requests
+
+      - run: python validate_data.py
+
+      - run: python build_site.py
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    if: always() && needs.build.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

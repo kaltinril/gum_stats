@@ -92,7 +92,12 @@ def get_counts_from_repo(owner, repo, token=""):
     headers = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=30)
+    # Fail loudly rather than write a partial or garbage row (rate limit, renamed repo, outage).
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"GitHub API returned {response.status_code} for {owner}/{repo}: {response.text[:200]}"
+        )
     data = response.json()
 
     return {

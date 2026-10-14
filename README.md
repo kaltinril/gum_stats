@@ -2,6 +2,8 @@
 
 Tracks GitHub statistics (stars, subscribers, forks, open issues) for Gum and competing MonoGame UI libraries over time, and visualizes the data as charts.
 
+**Automated:** a GitHub Action collects a snapshot every day, commits it to `data.csv`, and publishes an interactive chart page to GitHub Pages (`https://kaltinril.github.io/gum_stats/`). See [docs/phase-1-github-actions-pages.md](docs/phase-1-github-actions-pages.md) for how it works and the one-time setup. Preview the page locally with `python build_site.py` then `python -m http.server -d _site 8000`.
+
 > **⚠️ Historical backfill is no longer available.** `catchup.py` and `fillgaps.py` depended on GitHub's stargazers-with-timestamps API to reconstruct past star counts. As of GitHub's [stargazer API restriction](https://www.star-history.com/blog/github-stargazer-api-restriction/), that endpoint returns **404 Not Found** for any repository you don't own or collaborate on, so historical stars can no longer be reconstructed for competitor repos. Going forward, collect data day-by-day with `getCompetitorCounts.py`.
 
 ## Project Structure
@@ -15,6 +17,10 @@ Tracks GitHub statistics (stars, subscribers, forks, open issues) for Gum and co
 | `chartit.py` | Generates stacked bar charts with sparkline insets showing original vs. change over time. |
 | `chartit2.py` | Alternate chart layout with sparklines in a dedicated row above each metric's bars. |
 | `data.csv` | The collected time-series data. Each row is a snapshot date. |
+| `validate_data.py` | Checks `data.csv`; with `--baseline` it refuses any change that drops or edits an existing row. Run by the Action before every commit. |
+| `build_site.py` | Builds the static chart site into `_site/` (standard library only). |
+| `site/index.html` | The chart page published to GitHub Pages. |
+| `.github/workflows/stats.yml` | Daily collect, validate, commit and deploy. |
 | `secret.txt` | Your GitHub personal access token (not committed to git). |
 
 ## Setup

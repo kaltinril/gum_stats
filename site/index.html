@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gum GitHub Stats</title>
+<meta name="description" content="Stars, watchers, forks and open issues for Gum and other MonoGame UI libraries, collected daily by a GitHub Action.">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6;
+  --up: #006300;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --accent: #3987e5;
+    --up: #0ca30c;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --accent: #3987e5;
+  --up: #0ca30c;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--text-primary);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+a { color: var(--accent); }
+
+header h1 { font-size: 24px; margin: 0 0 4px; }
+header p { margin: 0; color: var(--text-secondary); }
+
+.controls {
+  display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+  margin: 24px 0 12px;
+}
+.group { display: flex; align-items: center; gap: 8px; }
+.group > span { color: var(--text-muted); font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button {
+  border: 0; background: none; color: var(--text-secondary);
+  font: inherit; font-size: 14px; padding: 6px 12px; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.seg button:focus-visible, .chip:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+  color: var(--text-primary); font: inherit; font-size: 14px; padding: 4px 12px; cursor: pointer;
+}
+.chip .key { width: 16px; height: 3px; border-radius: 2px; }
+.chip[aria-pressed="false"] { color: var(--text-muted); }
+.chip[aria-pressed="false"] .key { opacity: 0.25; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px;
+}
+.chart-wrap { position: relative; height: 420px; }
+@media (max-width: 600px) { .chart-wrap { height: 320px; } }
+.chart-note { margin: 8px 0 0; color: var(--text-muted); font-size: 13px; }
+
+h2 { font-size: 18px; margin: 32px 0 12px; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-secondary); font-weight: 600; }
+td { font-variant-numeric: tabular-nums; }
+td .delta { color: var(--text-muted); margin-left: 6px; }
+td .delta.up { color: var(--up); }
+td .muted { color: var(--text-muted); font-size: 12px; margin-left: 6px; }
+
+.downloads { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn {
+  display: inline-block; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text-primary); font: inherit; font-size: 14px;
+  padding: 8px 14px; cursor: pointer; text-decoration: none;
+}
+details summary { cursor: pointer; color: var(--text-secondary); margin: 8px 0; }
+.error { color: #d03b3b; }
+footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Gum GitHub Stats</h1>
+    <p>Gum and other MonoGame UI libraries, collected daily. <span id="updated"></span></p>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Chart options">
+    <div class="group"><span>Metric</span>
+      <div class="seg" id="metric">
+        <button data-v="STARS" aria-pressed="true">Stars</button>
+        <button data-v="FORKS" aria-pressed="false">Forks</button>
+        <button data-v="SUBS" aria-pressed="false">Watchers</button>
+        <button data-v="ISSUES" aria-pressed="false">Open issues</button>
+      </div>
+    </div>
+    <div class="group"><span>Range</span>
+      <div class="seg" id="range">
+        <button data-v="0" aria-pressed="true">All</button>
+        <button data-v="365" aria-pressed="false">1 year</button>
+        <button data-v="182" aria-pressed="false">6 months</button>
+        <button data-v="90" aria-pressed="false">90 days</button>
+      </div>
+    </div>
+    <div class="group"><span>Show</span>
+      <div class="seg" id="mode">
+        <button data-v="total" aria-pressed="true">Total</button>
+        <button data-v="change" aria-pressed="false">Gained</button>
+        <button data-v="pct" aria-pressed="false">% growth</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chips" id="chips" aria-label="Libraries shown"></div>
+
+  <section class="card">
+    <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Line chart of the selected metric over time"></canvas></div>
+    <p class="chart-note" id="note"></p>
+  </section>
+
+  <h2>Latest numbers</h2>
+  <section class="card table-scroll">
+    <table id="summary"></table>
+  </section>
+
+  <h2>Download the data</h2>
+  <div class="downloads">
+    <a class="btn" href="data.csv" download>data.csv (everything)</a>
+    <a class="btn" href="data.json" download>data.json (everything)</a>
+    <button class="btn" id="dl-view">Current chart as CSV</button>
+  </div>
+  <details>
+    <summary>Show every recorded row for the current metric</summary>
+    <div class="card table-scroll"><table id="full"></table></div>
+  </details>
+
+  <footer>
+    Collected by a scheduled GitHub Action from the public GitHub API. Every daily snapshot is a commit,
+    so the full history lives in the repository. "Watchers" is GitHub's subscriber count.
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const METRIC_LABEL = { STARS: "Stars", FORKS: "Forks", SUBS: "Watchers", ISSUES: "Open issues" };
+  const DAY = 86400000;
+  const state = { metric: "STARS", range: 0, mode: "total", hidden: new Set() };
+  let rows = [];      // [{ t: ms, date: "YYYY-MM-DD", values: { col: number|null } }]
+  let repos = [];     // charted repos, each with a fixed color slot
+  let others = [];    // tracked but not charted
+  let chart = null;
+
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function fmtDate(t) { return new Date(t).toISOString().slice(0, 10); }
+  function el(tag, text, cls) {
+    const e = document.createElement(tag);
+    if (text != null) e.textContent = text;
+    if (cls) e.className = cls;
+    return e;
+  }
+
+  function parseCsv(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const header = lines[0].split(",").map(s => s.trim());
+    return lines.slice(1).filter(l => l.trim()).map(line => {
+      const cells = line.split(",");
+      const values = {};
+      header.forEach((h, i) => {
+        if (i === 0) return;
+        const v = (cells[i] || "").trim();
+        values[h] = v === "" ? null : Number(v);
+      });
+      const date = cells[0].trim();
+      return { date, t: Date.parse(date + "T00:00:00Z"), values };
+    });
+  }
+
+  function visibleRows() {
+    if (!state.range) return rows;
+    const cutoff = rows[rows.length - 1].t - state.range * DAY;
+    return rows.filter(r => r.t >= cutoff);
+  }
+
+  // Value series for one repo in the current metric/range/mode. Gained and % growth
+  // are measured from the repo's first recorded value inside the range.
+  function seriesFor(repo, slice) {
+    const col = state.metric + "_" + repo.alias;
+    let base = null;
+    return slice.map(r => {
+      const v = r.values[col];
+      if (v == null) return { x: r.t, y: null };
+      if (base == null) base = v;
+      if (state.mode === "change") return { x: r.t, y: v - base };
+      if (state.mode === "pct") return { x: r.t, y: base === 0 ? null : ((v - base) / base) * 100 };
+      return { x: r.t, y: v };
+    });
+  }
+
+  function fmtValue(v) {
+    if (v == null) return "–";
+    if (state.mode === "pct") return (v > 0 ? "+" : "") + v.toFixed(1) + "%";
+    if (state.mode === "change") return (v > 0 ? "+" : "") + v.toLocaleString();
+    return v.toLocaleString();
+  }
+
+  function render() {
+    const slice = visibleRows();
+    const datasets = repos.filter(r => !state.hidden.has(r.alias)).map(r => ({
+      label: r.display_name,
+      data: seriesFor(r, slice),
+      borderColor: css(r.colorVar),
+      backgroundColor: css(r.colorVar),
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      pointHitRadius: 12,
+      spanGaps: true,
+      tension: 0,
+    }));
+
+    const grid = css("--grid"), muted = css("--text-muted"), axis = css("--axis");
+    const opts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      parsing: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: {
+          type: "linear",
+          min: slice[0].t, max: slice[slice.length - 1].t,
+          grid: { display: false },
+          border: { color: axis },
+          ticks: {
+            color: muted, maxTicksLimit: 8, maxRotation: 0,
+            callback: v => new Date(v).toLocaleDateString(undefined, { year: "numeric", month: "short", timeZone: "UTC" }),
+          },
+        },
+        y: {
+          grid: { color: grid },
+          border: { display: false },
+          ticks: { color: muted, callback: v => state.mode === "pct" ? v + "%" : Number(v).toLocaleString() },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: css("--surface"),
+          titleColor: css("--text-secondary"),
+          bodyColor: css("--text-primary"),
+          borderColor: css("--border"),
+          borderWidth: 1,
+          padding: 10,
+          usePointStyle: true,
+          itemSort: (a, b) => (b.parsed.y ?? -Infinity) - (a.parsed.y ?? -Infinity),
+          callbacks: {
+            title: items => items.length ? new Date(items[0].parsed.x).toLocaleDateString(undefined, { dateStyle: "medium", timeZone: "UTC" }) : "",
+            label: item => fmtValue(item.parsed.y) + "  " + item.dataset.label,
+            labelPointStyle: () => ({ pointStyle: "line", rotation: 0 }),
+          },
+        },
+      },
+    };
+
+    if (chart) { chart.data.datasets = datasets; chart.options = opts; chart.update(); }
+    else chart = new Chart(document.getElementById("chart"), { type: "line", data: { datasets }, options: opts });
+
+    const modeText = { total: "total", change: "gained since the start of the range", pct: "% growth since the start of the range" }[state.mode];
+    document.getElementById("note").textContent =
+      METRIC_LABEL[state.metric] + ", " + modeText + ". " + fmtDate(slice[0].t) + " to " + fmtDate(slice[slice.length - 1].t) +
+      " (" + slice.length + " snapshots). Click a library above to hide or show it.";
+
+    renderSummary(slice);
+    renderFull(slice);
+  }
+
+  function renderSummary(slice) {
+    const table = document.getElementById("summary");
+    table.replaceChildren();
+    const head = table.createTHead().insertRow();
+    ["Library", "Stars", "Forks", "Watchers", "Open issues"].forEach(h => head.appendChild(el("th", h)));
+    const note = state.range ? "in range" : "since first snapshot";
+    head.cells[1].appendChild(el("span", " (+ " + note + ")", "muted"));
+
+    const first = slice[0], last = slice[slice.length - 1];
+    const body = table.createTBody();
+    const all = repos.concat(others).slice().sort((a, b) =>
+      (last.values["STARS_" + b.alias] ?? 0) - (last.values["STARS_" + a.alias] ?? 0));
+    all.forEach(repo => {
+      const tr = body.insertRow();
+      const name = tr.insertCell();
+      const a = el("a", repo.display_name);
+      a.href = repo.url;
+      name.appendChild(a);
+      if (repo.excluded_from_chart) name.appendChild(el("span", "not charted", "muted"));
+      ["STARS", "FORKS", "SUBS", "ISSUES"].forEach(m => {
+        const td = tr.insertCell();
+        const col = m + "_" + repo.alias;
+        const now = last.values[col];
+        td.appendChild(document.createTextNode(now == null ? "–" : now.toLocaleString()));
+        if (m === "STARS" && now != null) {
+          const then = slice.find(r => r.values[col] != null).values[col];
+          const d = now - then;
+          td.appendChild(el("span", (d > 0 ? "+" : "") + d.toLocaleString(), d > 0 ? "delta up" : "delta"));
+        }
+      });
+    });
+  }
+
+  function viewTable(slice) {
+    const shown = repos.filter(r => !state.hidden.has(r.alias));
+    const series = shown.map(r => seriesFor(r, slice));
+    return {
+      header: ["DATE"].concat(shown.map(r => r.display_name)),
+      rows: slice.map((r, i) => [r.date].concat(series.map(s => s[i].y))),
+    };
+  }
+
+  function renderFull(slice) {
+    const { header, rows: data } = viewTable(slice);
+    const table = document.getElementById("full");
+    table.replaceChildren();
+    const head = table.createTHead().insertRow();
+    header.forEach(h => head.appendChild(el("th", h)));
+    const body = table.createTBody();
+    data.slice().reverse().forEach(row => {
+      const tr = body.insertRow();
+      row.forEach((v, i) => tr.insertCell().textContent = i === 0 ? v : fmtValue(v));
+    });
+  }
+
+  function downloadView() {
+    const { header, rows: data } = viewTable(visibleRows());
+    const round = v => v == null ? "" : state.mode === "pct" ? v.toFixed(2) : String(v);
+    const csv = [header.join(",")].concat(data.map(r => [r[0]].concat(r.slice(1).map(round)).join(","))).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = "gum-stats-" + state.metric.toLowerCase() + "-" + state.mode + ".csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function bindSeg(id, key, parse) {
+    const seg = document.getElementById(id);
+    seg.addEventListener("click", e => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+      state[key] = parse(b.dataset.v);
+      render();
+    });
+  }
+
+  function buildChips() {
+    const chips = document.getElementById("chips");
+    repos.forEach(r => {
+      const b = el("button", null, "chip");
+      b.setAttribute("aria-pressed", "true");
+      const key = el("span", null, "key");
+      key.style.background = "var(" + r.colorVar + ")";
+      b.append(key, document.createTextNode(r.display_name));
+      b.addEventListener("click", () => {
+        if (state.hidden.has(r.alias)) state.hidden.delete(r.alias); else state.hidden.add(r.alias);
+        b.setAttribute("aria-pressed", String(!state.hidden.has(r.alias)));
+        render();
+      });
+      chips.appendChild(b);
+    });
+  }
+
+  async function load() {
+    try {
+      const [csvText, config] = await Promise.all([
+        fetch("data.csv", { cache: "no-cache" }).then(r => { if (!r.ok) throw new Error("data.csv " + r.status); return r.text(); }),
+        fetch("repos.json", { cache: "no-cache" }).then(r => { if (!r.ok) throw new Error("repos.json " + r.status); return r.json(); }),
+      ]);
+      rows = parseCsv(csvText).sort((a, b) => a.t - b.t);
+      // Colors follow the repo's position in repos_config.py, so hiding one never repaints the rest.
+      let slot = 0;
+      config.repos.forEach(r => {
+        if (!r.excluded_from_chart && slot < 8) repos.push(Object.assign({ colorVar: "--s" + (++slot) }, r));
+        else others.push(r);
+      });
+      const latest = rows[rows.length - 1].date;
+      document.getElementById("updated").textContent = "Latest snapshot " + latest + ".";
+      buildChips();
+      bindSeg("metric", "metric", v => v);
+      bindSeg("range", "range", Number);
+      bindSeg("mode", "mode", v => v);
+      document.getElementById("dl-view").addEventListener("click", downloadView);
+      render();
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+    } catch (err) {
+      const p = el("p", "Could not load the data: " + err.message, "error");
+      document.querySelector("main").insertBefore(p, document.querySelector(".controls"));
+    }
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
