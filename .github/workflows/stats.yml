@@ -94,7 +94,8 @@ jobs:
 
   deploy:
     needs: build
-    if: always() && needs.build.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # Skipped while the repo is private: GitHub's free plan has no Pages for private repos.
+    if: always() && needs.build.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !github.event.repository.private
     runs-on: ubuntu-latest
     permissions:
       pages: write
