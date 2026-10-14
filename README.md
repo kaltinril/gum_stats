@@ -2,7 +2,7 @@
 
 Tracks GitHub statistics (stars, subscribers, forks, open issues) for Gum and competing MonoGame UI libraries over time, and visualizes the data as charts.
 
-**Automated:** a GitHub Action collects a snapshot every day, commits it to `data.csv`, and publishes an interactive chart page to GitHub Pages (`https://kaltinril.github.io/gum_stats/`). See [docs/phase-1-github-actions-pages.md](docs/phase-1-github-actions-pages.md) for how it works and the one-time setup. Preview the page locally with `python build_site.py` then `python -m http.server -d _site 8000`.
+**Automated:** a GitHub Action collects a snapshot every day, commits it to `data.csv`, and publishes an interactive chart page to GitHub Pages (`https://kaltinril.github.io/gum_stats/`). See [docs/phase-1-github-actions-pages.md](docs/phase-1-github-actions-pages.md) for how it works and the one-time setup. To view it locally, run `python build_site.py` and open `_site/index.html` in a browser (`site/index.html` is the template and has no data).
 
 > **⚠️ Historical backfill is no longer available.** `catchup.py` and `fillgaps.py` depended on GitHub's stargazers-with-timestamps API to reconstruct past star counts. As of GitHub's [stargazer API restriction](https://www.star-history.com/blog/github-stargazer-api-restriction/), that endpoint returns **404 Not Found** for any repository you don't own or collaborate on, so historical stars can no longer be reconstructed for competitor repos. Going forward, collect data day-by-day with `getCompetitorCounts.py`.
 

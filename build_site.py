@@ -3,6 +3,7 @@ build_site.py — assembles the static GitHub Pages site into _site/.
 
 Output:
   _site/index.html   the chart page (copied from site/)
+  _site/data.js      data.csv + repo config for the page (works from file:// too)
   _site/data.csv     the raw collected data, unchanged
   _site/data.json    the same data as JSON, one object per date
   _site/repos.json   tracked repos from repos_config.py (names, links, chart flags)
@@ -11,7 +12,7 @@ Standard library only, so the workflow doesn't need pandas/matplotlib to deploy.
 
 Usage:
     python build_site.py
-    python -m http.server -d _site 8000     # then open http://localhost:8000
+    then open _site/index.html (not site/index.html, which is the template with no data)
 """
 
 import csv
@@ -29,9 +30,16 @@ OUT = os.path.join(HERE, "_site")
 
 
 def main():
-    if os.path.isdir(OUT):
-        shutil.rmtree(OUT)
-    shutil.copytree(SITE_SRC, OUT)
+    # Empty _site/ rather than delete it: on Windows an editor or OneDrive often holds the
+    # folder itself open, and removing it then fails with "Access is denied".
+    os.makedirs(OUT, exist_ok=True)
+    for name in os.listdir(OUT):
+        path = os.path.join(OUT, name)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+    shutil.copytree(SITE_SRC, OUT, dirs_exist_ok=True)
     shutil.copyfile(os.path.join(HERE, CSV_FILE), os.path.join(OUT, "data.csv"))
 
     with open(os.path.join(HERE, CSV_FILE), "r", newline="") as f:
@@ -65,6 +73,16 @@ def main():
     }
     with open(os.path.join(OUT, "repos.json"), "w") as f:
         json.dump(repos, f, indent=2)
+
+    # The page reads its data from data.js through a <script> tag rather than fetch(),
+    # because browsers block fetch() on file:// pages; this way _site/index.html also
+    # works when opened straight from disk.
+    with open(os.path.join(HERE, CSV_FILE), "r", newline="") as f:
+        csv_text = f.read()
+    with open(os.path.join(OUT, "data.js"), "w") as f:
+        f.write("window.GUM_STATS = ")
+        json.dump({"csv": csv_text, "config": repos}, f, separators=(",", ":"))
+        f.write(";\n")
 
     print(f"Built {OUT}: {len(records)} rows, {len(ALL_REPOS)} repos")
 
