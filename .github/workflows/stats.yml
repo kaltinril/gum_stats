@@ -11,6 +11,8 @@ on:
       - "data.csv"
       - "repos_config.py"
       - "build_site.py"
+      - "star_chart.py"
+      - "star_history_gum.csv"
       - ".github/workflows/stats.yml"
   pull_request:
 

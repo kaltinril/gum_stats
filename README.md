@@ -4,6 +4,8 @@ Tracks GitHub statistics (stars, subscribers, forks, open issues) for Gum and co
 
 **Automated:** a GitHub Action collects a snapshot every day, commits it to `data.csv`, and publishes an interactive chart page to GitHub Pages (`https://kaltinril.github.io/gum_stats/`). See [docs/phase-1-github-actions-pages.md](docs/phase-1-github-actions-pages.md) for how it works and the one-time setup. To view it locally, run `python build_site.py` and open `_site/index.html` in a browser (`site/index.html` is the template and has no data).
 
+**README chart:** the build also publishes Gum's all-time star history as plain images, `https://kaltinril.github.io/gum_stats/stars-light.svg` and `stars-dark.svg`, which the Gum README embeds.
+
 > **⚠️ Historical backfill is no longer available.** `catchup.py` and `fillgaps.py` depended on GitHub's stargazers-with-timestamps API to reconstruct past star counts. As of GitHub's [stargazer API restriction](https://www.star-history.com/blog/github-stargazer-api-restriction/), that endpoint returns **404 Not Found** for any repository you don't own or collaborate on, so historical stars can no longer be reconstructed for competitor repos. Going forward, collect data day-by-day with `getCompetitorCounts.py`.
 
 ## Project Structure
@@ -20,6 +22,9 @@ Tracks GitHub statistics (stars, subscribers, forks, open issues) for Gum and co
 | `validate_data.py` | Checks `data.csv`; with `--baseline` it refuses any change that drops or edits an existing row. Run by the Action before every commit. |
 | `build_site.py` | Builds the static chart site into `_site/` (standard library only). |
 | `site/index.html` | The chart page published to GitHub Pages. |
+| `star_chart.py` | Draws Gum's all-time star history as `stars-light.svg` / `stars-dark.svg` for embedding in a README (called by `build_site.py`). |
+| `star_history_gum.csv` | Gum's running star count on every day it gained a star since 2015. The chart continues it with `data.csv`. |
+| `backfill_star_history.py` | Rebuilds `star_history_gum.csv`. Needs a token with push access to Gum, so it is run by hand, not by the Action. |
 | `.github/workflows/stats.yml` | Daily collect, validate, commit and deploy. |
 | `secret.txt` | Your GitHub personal access token (not committed to git). |
 

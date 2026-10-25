@@ -7,6 +7,8 @@ Output:
   _site/data.csv     the raw collected data, unchanged
   _site/data.json    the same data as JSON, one object per date
   _site/repos.json   tracked repos from repos_config.py (names, links, chart flags)
+  _site/stars-light.svg, _site/stars-dark.svg
+                     Gum's all-time star history as plain images, for READMEs (star_chart.py)
 
 Standard library only, so the workflow doesn't need pandas/matplotlib to deploy.
 
@@ -22,6 +24,7 @@ import os
 import shutil
 
 from repos_config import ALL_REPOS, METRICS
+from star_chart import write_star_charts
 from starcounts import CSV_FILE
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -83,6 +86,8 @@ def main():
         f.write("window.GUM_STATS = ")
         json.dump({"csv": csv_text, "config": repos}, f, separators=(",", ":"))
         f.write(";\n")
+
+    write_star_charts(OUT)
 
     print(f"Built {OUT}: {len(records)} rows, {len(ALL_REPOS)} repos")
 
